@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MIS FLUJOS DE TRABAJO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  
+  <!-- Supabase Client -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>MIS FLUJOS DE TRABAJO</h1>
+  
+  <div id="toolbar">
+    <button id="addNode">Agregar Sala</button>
+    <button id="addSubroom">Agregar Subsala</button>
+    <div class="toolbar-right">
+      <div class="zoom-indicator">
+        <span>Zoom:</span> <span id="zoomValue">100%</span>
+      </div>
+      <div id="dbStatus" class="db-status">
+        <span class="status-icon">�</span>
+        <span class="status-text">Verificando...</span>
+      </div>
+    </div>
+  </div>
+    <canvas id="mapCanvas"></canvas>
+  </div>
+  
+  <!-- Modal para gestión de tareas -->
+  <div id="taskModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Tareas - [Nombre del Nodo]</h2>
+        <span class="close" id="closeModal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="task-controls">
+          <button id="addTask" class="task-btn add-btn">Agregar Tarea</button>
+          <button id="deleteTask" class="task-btn delete-btn">Eliminar Tarea</button>
+          <button id="closeModalBtn" class="task-btn close-btn">Cerrar</button>
+        </div>
+        <div class="tasks-container" id="tasksContainer">
+          <p class="no-tasks">No hay tareas. Haz clic en "Agregar Tarea" para crear una.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal para crear/editar tarea -->
+  <div id="taskFormModal" class="modal">
+    <div class="modal-content task-form">
+      <div class="modal-header">
+        <h3 id="taskFormTitle">Agregar Nueva Tarea</h3>
+        <span class="close" id="closeTaskForm">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form id="taskForm">
+          <div class="form-group">
+            <label for="taskTitle">Título:</label>
+            <input type="text" id="taskTitle" name="taskTitle" required maxlength="100">
+          </div>
+          <div class="form-group">
+            <label for="taskDescription">Descripción:</label>
+            <textarea id="taskDescription" name="taskDescription" rows="4" maxlength="500"></textarea>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="taskCompleted" name="taskCompleted">
+              Tarea completada
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="task-btn save-btn">Guardar</button>
+            <button type="button" class="task-btn cancel-btn" id="cancelTaskForm">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Scripts -->
+  <script src="supabase.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
