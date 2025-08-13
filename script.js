@@ -179,29 +179,24 @@ function drawStatusIndicator(ctx, node, animationTime) {
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
   
-  // Configurar canvas para alta resolución (HiDPI/Retina)
-  const dpr = window.devicePixelRatio || 1;
-  const displayWidth = canvas.offsetWidth;
-  const displayHeight = canvas.offsetHeight;
-  
-  canvas.width = displayWidth * dpr;
-  canvas.height = displayHeight * dpr;
-  
-  canvas.style.width = displayWidth + 'px';
-  canvas.style.height = displayHeight + 'px';
-  
-  // Escalar el contexto para compensar la densidad de píxeles
-  ctx.scale(dpr, dpr);
+  // Configurar canvas para dimensiones correctas
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
   
   // Configurar para renderizado de alta calidad
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.textRenderingOptimization = 'optimizeQuality';
   
+  // Centrar la vista correctamente
+  viewOffsetX = canvas.width / 2 / zoomLevel;
+  viewOffsetY = canvas.height / 2 / zoomLevel;
+  
   // Crear o reposicionar el nodo central
   if (!centralNode) {
     const centerSize = calculateNodeSize('ADMINISTRADOR DE TAREAS', true, false);
     centralNode = { 
+      id: Date.now().toString(),
       x: -centerSize.width / 2, 
       y: -centerSize.height / 2, 
       label: 'ADMINISTRADOR DE TAREAS', 
@@ -247,10 +242,16 @@ window.addEventListener('load', async () => {
         // Cargar nodos desde Supabase
         nodes.push(...appData.nodes);
         
-        // Actualizar referencia del nodo central
+        // Actualizar referencia del nodo central y centrarlo
         centralNode = nodes.find(node => node.isCenter) || null;
         if (centralNode) {
           console.log('✅ Nodo central encontrado:', centralNode.label);
+          // Asegurar que el nodo central esté centrado en el origen
+          const centerSize = calculateNodeSize(centralNode.label, true, false);
+          centralNode.x = -centerSize.width / 2;
+          centralNode.y = -centerSize.height / 2;
+          centralNode.width = centerSize.width;
+          centralNode.height = centerSize.height;
         }
         
         // Cargar conexiones desde Supabase
@@ -283,11 +284,15 @@ window.addEventListener('load', async () => {
         
         console.log(`✅ Datos cargados: ${nodes.length} nodos, ${connections.length} conexiones, ${tasks.length} tareas`);
         
-        // Configurar vista según el mapa cargado
+        // Configurar vista centrada correctamente
         if (appData.map) {
           viewOffsetX = appData.map.view_offset_x || canvas.width / 2 / zoomLevel;
           viewOffsetY = appData.map.view_offset_y || canvas.height / 2 / zoomLevel;
           zoomLevel = appData.map.zoom_level || 1;
+        } else {
+          // Si no hay configuración de vista guardada, centrar en el canvas
+          viewOffsetX = canvas.width / 2 / zoomLevel;
+          viewOffsetY = canvas.height / 2 / zoomLevel;
         }
       } else {
         console.log('📋 No hay datos en Supabase, inicializando con nodo central');
@@ -307,20 +312,21 @@ window.addEventListener('load', async () => {
 
 // Función para crear el nodo central por defecto
 function createCenterNode() {
-  // Centrar vista en el nodo central
+  // Centrar vista en el nodo central correctamente
   viewOffsetX = canvas.width / 2 / zoomLevel;
   viewOffsetY = canvas.height / 2 / zoomLevel;
   
   // Solo crear si no existe un nodo central
   const centerExists = nodes.some(node => node.isCenter);
   if (!centerExists) {
+    const centerSize = calculateNodeSize('ADMINISTRADOR DE TAREAS', true, false);
     const centerNode = {
       id: Date.now().toString(),
       label: 'ADMINISTRADOR DE TAREAS',
-      x: 0,
-      y: 0,
-      width: 200,
-      height: 42,
+      x: -centerSize.width / 2,
+      y: -centerSize.height / 2,
+      width: centerSize.width,
+      height: centerSize.height,
       isCenter: true,
       isSubroom: false,
       tasks: []
@@ -329,14 +335,44 @@ function createCenterNode() {
     centralNode = centerNode; // Actualizar la variable global
     console.log('✅ Nodo central creado en modo local');
   } else {
-    // Si ya existe, actualizar la referencia
+    // Si ya existe, actualizar la referencia y centrar vista
     centralNode = nodes.find(node => node.isCenter);
+    if (centralNode) {
+      // Asegurar que el nodo central esté en el origen
+      const centerSize = calculateNodeSize(centralNode.label, true, false);
+      centralNode.x = -centerSize.width / 2;
+      centralNode.y = -centerSize.height / 2;
+      centralNode.width = centerSize.width;
+      centralNode.height = centerSize.height;
+    }
   }
 }
 window.addEventListener('resize', resizeCanvas);
 
 // Inicializar canvas
 resizeCanvas();
+
+// Función para forzar el centrado del mapa
+function centerMap() {
+  viewOffsetX = canvas.width / 2 / zoomLevel;
+  viewOffsetY = canvas.height / 2 / zoomLevel;
+  
+  // Asegurar que el nodo central esté en el origen
+  if (centralNode) {
+    const centerSize = calculateNodeSize(centralNode.label, true, false);
+    centralNode.x = -centerSize.width / 2;
+    centralNode.y = -centerSize.height / 2;
+    centralNode.width = centerSize.width;
+    centralNode.height = centerSize.height;
+  }
+  
+  draw();
+}
+
+// Centrar el mapa después de un breve delay para asegurar que el canvas esté listo
+setTimeout(() => {
+  centerMap();
+}, 200);
 
 // Función para calcular el tamaño óptimo del nodo basado en el texto
 function calculateNodeSize(label, isCenter, isSubroom) {
@@ -1015,10 +1051,12 @@ document.addEventListener('keydown', (e) => {
     case 'r':
     case 'R':
       // Reset de vista - centrar y zoom 1:1
-      viewOffsetX = 0;
-      viewOffsetY = 0;
-      zoomLevel = 1;
-      draw();
+      centerView();
+      break;
+    case 'c':
+    case 'C':
+      // Centrar en el nodo central
+      centerView();
       break;
     case '0':
       // Ajustar zoom para ver todos los nodos
@@ -1028,16 +1066,27 @@ document.addEventListener('keydown', (e) => {
     case '=':
       // Zoom in
       zoomLevel = Math.min(5, zoomLevel * 1.2);
+      updateZoomIndicator();
       draw();
       break;
     case '-':
     case '_':
       // Zoom out
       zoomLevel = Math.max(0.1, zoomLevel / 1.2);
+      updateZoomIndicator();
       draw();
       break;
   }
 });
+
+// Función para centrar la vista en el nodo central
+function centerView() {
+  viewOffsetX = canvas.offsetWidth / 2 / zoomLevel;
+  viewOffsetY = canvas.offsetHeight / 2 / zoomLevel;
+  zoomLevel = 1;
+  updateZoomIndicator();
+  draw();
+}
 
 // Función para ajustar la vista a todos los nodos
 function fitToView() {
@@ -1084,7 +1133,7 @@ function draw() {
   // Actualizar indicador de zoom
   updateZoomIndicator();
   
-  // Limpiar canvas con configuración de alta calidad
+  // Limpiar canvas
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1099,13 +1148,12 @@ function draw() {
   drawInfiniteGrid();
   
   // Aplicar transformaciones de zoom y paneo
-  const dpr = window.devicePixelRatio || 1;
-  ctx.setTransform(zoomLevel * dpr, 0, 0, zoomLevel * dpr, viewOffsetX * zoomLevel * dpr, viewOffsetY * zoomLevel * dpr);
+  ctx.setTransform(zoomLevel, 0, 0, zoomLevel, viewOffsetX * zoomLevel, viewOffsetY * zoomLevel);
   
   // Dibujar conexiones con líneas punteadas de alta calidad
-  ctx.lineWidth = 3 / zoomLevel; // Líneas más gruesas para mejor visibilidad
-  ctx.strokeStyle = 'rgba(156, 163, 175, 0.9)'; // Gris más claro y visible
-  ctx.setLineDash([6 / zoomLevel, 6 / zoomLevel]); // Puntos más grandes
+  ctx.lineWidth = 3 / zoomLevel;
+  ctx.strokeStyle = 'rgba(156, 163, 175, 0.9)';
+  ctx.setLineDash([6 / zoomLevel, 6 / zoomLevel]);
   
   for (let conn of connections) {
     // Calcular puntos de conexión basados en la dirección
